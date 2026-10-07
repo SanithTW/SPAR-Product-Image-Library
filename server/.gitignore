@@ -1,0 +1,6 @@
+node_modules/
+.env
+uploads/
+spar_images.db
+spar_images.db-journal
+*.log
