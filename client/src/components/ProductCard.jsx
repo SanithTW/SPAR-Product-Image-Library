@@ -1,4 +1,5 @@
 import React from 'react';
+import { getImageUrl } from '../services/api';
 
 // Helper to determine a display category tag based on title
 function getCategory(name) {
@@ -28,7 +29,7 @@ export default function ProductCard({ product, onPreview, onDownload, isDownload
     >
       <div className="product-image-wrap">
         <img
-          src={product.image_url}
+          src={getImageUrl(product.image_url)}
           alt={product.product_name}
           loading="lazy"
         />

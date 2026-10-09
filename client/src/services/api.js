@@ -69,4 +69,17 @@ export const getDownloadUrl = (id) => {
   return `${base}/products/${id}/download`;
 };
 
+export const getImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:') || url.startsWith('data:')) {
+    return url;
+  }
+  const apiBase = import.meta.env.VITE_API_URL || '';
+  if (apiBase) {
+    const serverOrigin = apiBase.replace(/\/api\/?$/, '').replace(/\/+$/, '');
+    return `${serverOrigin}${url.startsWith('/') ? '' : '/'}${url}`;
+  }
+  return url;
+};
+
 export default api;

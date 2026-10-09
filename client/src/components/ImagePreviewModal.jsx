@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { getImageUrl } from '../services/api';
 
 export default function ImagePreviewModal({ product, onClose, onDownload, isDownloading }) {
   useEffect(() => {
@@ -10,6 +11,8 @@ export default function ImagePreviewModal({ product, onClose, onDownload, isDown
   }, [onClose]);
 
   if (!product) return null;
+
+  const fullImageUrl = getImageUrl(product.image_url);
 
   return (
     <div className="modal" onClick={onClose} style={{ display: 'flex' }}>
@@ -44,7 +47,7 @@ export default function ImagePreviewModal({ product, onClose, onDownload, isDown
           }}
         >
           <img
-            src={product.image_url}
+            src={fullImageUrl}
             alt={product.product_name}
             style={{ maxWidth: '100%', maxHeight: '400px', objectFit: 'contain' }}
           />
@@ -52,7 +55,7 @@ export default function ImagePreviewModal({ product, onClose, onDownload, isDown
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <a
-            href={product.image_url}
+            href={fullImageUrl}
             target="_blank"
             rel="noreferrer"
             className="icon-btn"

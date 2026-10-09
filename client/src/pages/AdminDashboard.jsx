@@ -3,7 +3,7 @@ import {
   Upload, Trash2, Edit3, Download, Search, Image as ImageIcon, 
   CheckCircle2, AlertCircle, Loader2, X, RefreshCw, FileText, Database, ShieldCheck
 } from 'lucide-react';
-import { getProducts, uploadProduct, updateProduct, deleteProduct, checkHealth } from '../services/api';
+import { getProducts, uploadProduct, updateProduct, deleteProduct, checkHealth, getImageUrl } from '../services/api';
 import { downloadProductImage } from '../utils/downloadHelper';
 
 export default function AdminDashboard() {
@@ -501,7 +501,7 @@ export default function AdminDashboard() {
                     <td className="py-3 px-4">
                       <div className="w-12 h-12 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center overflow-hidden border border-slate-200 dark:border-slate-700 p-0.5">
                         <img
-                          src={p.image_url}
+                          src={getImageUrl(p.image_url)}
                           alt={p.product_name}
                           className="w-full h-full object-contain"
                         />
@@ -600,7 +600,7 @@ export default function AdminDashboard() {
                 <div className="flex items-center gap-3">
                   <div className="w-16 h-16 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center overflow-hidden p-1">
                     <img
-                      src={editPreviewUrl || editingProduct.image_url}
+                      src={editPreviewUrl || getImageUrl(editingProduct.image_url)}
                       alt="Current"
                       className="w-full h-full object-contain"
                     />
@@ -677,7 +677,7 @@ export default function AdminDashboard() {
 
             <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl flex items-center gap-3 border border-slate-200 dark:border-slate-700">
               <img
-                src={deletingProduct.image_url}
+                src={getImageUrl(deletingProduct.image_url)}
                 alt=""
                 className="w-12 h-12 object-contain rounded bg-white dark:bg-slate-900 p-1"
               />
