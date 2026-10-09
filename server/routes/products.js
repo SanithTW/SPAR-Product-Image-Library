@@ -9,6 +9,22 @@ const { upload, saveImage, deleteImage, uploadDir } = require('../services/stora
 
 const router = express.Router();
 
+function formatProduct(product, req) {
+  if (!product) return product;
+  let imageUrl = product.image_url;
+  if (imageUrl && imageUrl.startsWith('/uploads/')) {
+    const host = req.get('host');
+    if (host) {
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      imageUrl = `${protocol}://${host}${imageUrl}`;
+    }
+  }
+  return {
+    ...product,
+    image_url: imageUrl,
+  };
+}
+
 /**
  * GET /api/products?q=
  * Search products by DC code or product name (partial matches work).
@@ -45,7 +61,7 @@ router.get('/', async (req, res) => {
 
     return res.json({
       count: result.rows.length,
-      products: result.rows,
+      products: result.rows.map((p) => formatProduct(p, req)),
     });
   } catch (err) {
     console.error('[Products] Fetch error:', err);
@@ -69,7 +85,7 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Product not found.' });
     }
 
-    return res.json({ product: result.rows[0] });
+    return res.json({ product: formatProduct(result.rows[0], req) });
   } catch (err) {
     console.error('[Products] Get by id error:', err);
     return res.status(500).json({ error: 'Failed to get product details.' });
@@ -181,7 +197,7 @@ router.post('/', authMiddleware, (req, res, next) => {
 
     return res.status(201).json({
       message: 'Product image uploaded successfully.',
-      product: newProduct,
+      product: formatProduct(newProduct, req),
     });
   } catch (err) {
     console.error('[Products] Upload error:', err);
@@ -253,7 +269,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
 
     return res.json({
       message: 'Product updated successfully.',
-      product: updatedResult.rows[0],
+      product: formatProduct(updatedResult.rows[0], req),
     });
   } catch (err) {
     console.error('[Products] Update error:', err);

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { getProducts, uploadProduct, updateProduct, deleteProduct, checkHealth } from '../services/api';
+import { getProducts, uploadProduct, updateProduct, deleteProduct, checkHealth, getImageUrl } from '../services/api';
 
 export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }) {
   const { isAuthenticated, login, logout } = useAuth();
@@ -23,6 +23,8 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
   const [dcCode, setDcCode] = useState('');
   const [productName, setProductName] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
@@ -73,14 +75,42 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
     }
   };
 
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size exceeds 5 MB limit.');
-        return;
-      }
-      setSelectedFile(file);
+  const handleFileSelect = (file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size exceeds 5 MB limit.');
+      return;
+    }
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      alert('Only JPG, PNG and WEBP image files are allowed.');
+      return;
+    }
+    setSelectedFile(file);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFileSelect(e.dataTransfer.files[0]);
     }
   };
 
@@ -104,6 +134,10 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
       setDcCode('');
       setProductName('');
       setSelectedFile(null);
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
       if (fileInputRef.current) fileInputRef.current.value = '';
       await loadData();
       if (onProductChange) onProductChange();
@@ -244,21 +278,54 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
             </div>
 
             <form onSubmit={handleUploadSubmit} className="upload-grid">
-              <label className="dropzone">
+              <div
+                className={`dropzone ${isDragging ? 'dragging' : ''}`}
+                onDragOver={handleDragOver}
+                onDragEnter={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ cursor: 'pointer', position: 'relative' }}
+              >
                 <input
                   type="file"
                   ref={fileInputRef}
-                  onChange={handleFileChange}
+                  onChange={(e) => handleFileSelect(e.target.files[0])}
                   accept=".jpg,.jpeg,.png,.webp"
+                  style={{ display: 'none' }}
                 />
-                <span className="upload-icon">↑</span>
-                <strong>{selectedFile ? selectedFile.name : 'Choose product image'}</strong>
-                <small>
-                  {selectedFile
-                    ? `${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB · Selected`
-                    : 'JPG, PNG or WEBP · Max 5 MB'}
-                </small>
-              </label>
+
+                {previewUrl ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
+                    <img
+                      src={previewUrl}
+                      alt="Preview"
+                      style={{
+                        maxWidth: '130px',
+                        maxHeight: '90px',
+                        objectFit: 'contain',
+                        borderRadius: '10px',
+                        border: '2px solid var(--green)',
+                        background: '#fff',
+                        padding: '4px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                      }}
+                    />
+                    <strong style={{ fontSize: '13px', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {selectedFile?.name}
+                    </strong>
+                    <small style={{ color: 'var(--green)', fontWeight: 'bold' }}>
+                      ✓ {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB · Click or drag to replace
+                    </small>
+                  </div>
+                ) : (
+                  <>
+                    <span className="upload-icon">{isDragging ? '📥' : '↑'}</span>
+                    <strong>{isDragging ? 'Drop product image here' : 'Choose product image'}</strong>
+                    <small>Drag & drop or click to browse · JPG, PNG, WEBP (Max 5 MB)</small>
+                  </>
+                )}
+              </div>
 
               <div className="admin-fields">
                 <div className="field">
@@ -333,7 +400,16 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
                   <div key={p.id} className="table-row">
                     <span className="mini-img">
                       {p.image_url ? (
-                        <img src={p.image_url} alt="" />
+                        <img
+                          src={getImageUrl(p.image_url)}
+                          alt={p.product_name || ''}
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            if (e.currentTarget.parentElement) {
+                              e.currentTarget.parentElement.textContent = initial;
+                            }
+                          }}
+                        />
                       ) : (
                         initial
                       )}
