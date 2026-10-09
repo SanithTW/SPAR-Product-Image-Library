@@ -1,6 +1,7 @@
-const { createClient } = require('@libsql/client');
 const path = require('path');
-require('dotenv').config();
+const { createClient } = require('@libsql/client');
+const envPath = path.resolve(__dirname, '.env');
+require('dotenv').config({ path: envPath });
 
 let rawUrl = process.env.TURSO_DATABASE_URL || 'file:spar_images.db';
 const authToken = process.env.TURSO_AUTH_TOKEN ? process.env.TURSO_AUTH_TOKEN.trim() : undefined;

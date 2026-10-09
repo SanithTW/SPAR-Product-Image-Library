@@ -1,7 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 const { db, initDatabase } = require('./db');
 const { createAdmin } = require('./createAdmin');
@@ -22,8 +22,37 @@ app.use(express.urlencoded({ extended: true }));
 // Serve local uploaded images statically
 app.use('/uploads', express.static(uploadDir));
 
-// Health check endpoint (Proposal Step 3: Test with /api/health that runs SELECT 1)
-app.get('/api/health', async (req, res) => {
+// Ensure database and admin setup before handling requests
+let dbInitPromise = null;
+async function ensureDbInit() {
+  if (!dbInitPromise) {
+    dbInitPromise = (async () => {
+      await initDatabase();
+      await createAdmin();
+    })().catch((err) => {
+      console.error('[DB Init Error]:', err);
+      dbInitPromise = null;
+      throw err;
+    });
+  }
+  return dbInitPromise;
+}
+
+// Database initialization middleware for serverless invocations
+app.use(async (req, res, next) => {
+  try {
+    await ensureDbInit();
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Create API router for endpoints
+const apiRouter = express.Router();
+
+// Health check endpoint
+apiRouter.get('/health', async (req, res) => {
   try {
     const result = await db.execute('SELECT 1 as alive');
     return res.json({
@@ -43,9 +72,13 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-// Mount API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/products', productRoutes);
+// Mount routes on apiRouter
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/products', productRoutes);
+
+// Mount router on both '/api' and '/' (for flexible hosting on Vercel and local dev)
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 // Generic error handler
 app.use((err, req, res, next) => {
@@ -55,13 +88,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Bootstrap database, ensure default admin, and start HTTP listener
+// Bootstrap database, ensure default admin, and start HTTP listener for standalone runs
 async function startServer() {
   try {
-    await initDatabase();
-
-    // Ensure default admin exists
-    await createAdmin();
+    await ensureDbInit();
 
     app.listen(PORT, () => {
       console.log(`\n======================================================`);
@@ -79,4 +109,8 @@ async function startServer() {
   }
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = app;

@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const { db, initDatabase } = require('./db');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 
 async function createAdmin(usernameInput, passwordInput) {
   const username = usernameInput || process.env.ADMIN_USERNAME || 'admin';

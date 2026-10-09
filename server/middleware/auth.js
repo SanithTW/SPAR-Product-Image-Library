@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
 const JWT_SECRET = process.env.JWT_SECRET || 'spar_product_library_secure_jwt_secret_key_2026_xyz';
 
