@@ -51,6 +51,20 @@ app.use(async (req, res, next) => {
 // Create API router for endpoints
 const apiRouter = express.Router();
 
+// Root informational endpoint
+apiRouter.get('/', (req, res) => {
+  return res.json({
+    name: 'SPAR Product Image Library API',
+    status: 'online',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      products: '/api/products',
+      auth: '/api/auth/login',
+    },
+  });
+});
+
 // Health check endpoint
 apiRouter.get('/health', async (req, res) => {
   try {
