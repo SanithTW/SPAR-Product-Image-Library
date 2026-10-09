@@ -65,7 +65,9 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
       if (onProductChange) onProductChange();
     } catch (err) {
       console.error(err);
-      setLoginError(err.response?.data?.error || 'Invalid credentials. Default: admin / admin123');
+      const msg = err.response?.data?.error
+        || (err.response?.status ? `Server error (${err.response.status}). Please check backend status.` : 'Cannot reach backend server. Please verify VITE_API_URL.');
+      setLoginError(msg);
     } finally {
       setLoginLoading(false);
     }

@@ -16,15 +16,35 @@ if (isTurso && !authToken) {
   const absoluteDbPath = path.resolve(__dirname, 'spar_images.db').replace(/\\/g, '/');
   dbUrl = `file:${absoluteDbPath}`;
   isTurso = false;
-} else if (isTurso && authToken) {
+}
+
+const fs = require('fs');
+const os = require('os');
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+
+if (isTurso && authToken) {
   // Normalize libsql:// to https:// for @libsql/client HTTP Hrana transport
   if (dbUrl.startsWith('libsql:')) {
     dbUrl = dbUrl.replace(/^libsql:/, 'https:');
   }
-} else if (dbUrl.startsWith('file:') && !dbUrl.includes('/') && !dbUrl.includes('\\')) {
-  const filename = dbUrl.replace('file:', '');
-  const absoluteDbPath = path.resolve(__dirname, filename).replace(/\\/g, '/');
-  dbUrl = `file:${absoluteDbPath}`;
+} else if (dbUrl.startsWith('file:')) {
+  const filename = dbUrl.replace('file:', '').replace(/^\.\//, '');
+  if (isServerless) {
+    // In serverless, /var/task is read-only; use /tmp directory for writable SQLite
+    const tmpDbPath = path.join(os.tmpdir(), path.basename(filename || 'spar_images.db')).replace(/\\/g, '/');
+    const sourceDbPath = path.resolve(__dirname, path.basename(filename || 'spar_images.db'));
+    if (fs.existsSync(sourceDbPath) && !fs.existsSync(tmpDbPath)) {
+      try {
+        fs.copyFileSync(sourceDbPath, tmpDbPath);
+      } catch (e) {
+        console.warn('[DB] Could not copy source db to /tmp:', e.message);
+      }
+    }
+    dbUrl = `file:${tmpDbPath}`;
+  } else if (!dbUrl.includes('/') && !dbUrl.includes('\\')) {
+    const absoluteDbPath = path.resolve(__dirname, filename).replace(/\\/g, '/');
+    dbUrl = `file:${absoluteDbPath}`;
+  }
 }
 
 const clientConfig = {

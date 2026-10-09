@@ -4,9 +4,16 @@ const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 require('dotenv').config({ path: path.resolve(__dirname, '..', '.env') });
 
-const uploadDir = path.join(__dirname, '..', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
+const os = require('os');
+const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+const uploadDir = isServerless ? path.join(os.tmpdir(), 'spar_uploads') : path.join(__dirname, '..', 'uploads');
+
+try {
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[Storage] Could not create local uploadDir (read-only environment):', e.message);
 }
 
 // Check if Cloudinary is configured
