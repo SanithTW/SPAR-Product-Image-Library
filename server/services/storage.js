@@ -91,17 +91,26 @@ async function saveImage(file, dcCode) {
       uploadStream.end(file.buffer);
     });
   } else {
-    // Save to local disk
+    // Generate persistent base64 representation for database storage
+    const base64Data = file.buffer ? file.buffer.toString('base64') : null;
     const ext = path.extname(originalName) || '.jpg';
     const filename = `${sanitizedDc}_${Date.now()}${ext}`;
-    const targetPath = path.join(uploadDir, filename);
 
-    await fs.promises.writeFile(targetPath, file.buffer);
+    try {
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const targetPath = path.join(uploadDir, filename);
+      await fs.promises.writeFile(targetPath, file.buffer);
+    } catch (writeErr) {
+      // Harmless on read-only environments because image_data is stored in Turso
+    }
 
     return {
       image_url: `/uploads/${filename}`,
       public_id: `local:${filename}`,
       file_name: originalName,
+      image_data: base64Data,
     };
   }
 }

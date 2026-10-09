@@ -9,19 +9,32 @@ const { upload, saveImage, deleteImage, uploadDir } = require('../services/stora
 
 const router = express.Router();
 
+function getMimeType(fileName) {
+  const ext = path.extname(fileName || '').toLowerCase();
+  if (ext === '.png') return 'image/png';
+  if (ext === '.webp') return 'image/webp';
+  if (ext === '.gif') return 'image/gif';
+  if (ext === '.svg') return 'image/svg+xml';
+  return 'image/jpeg';
+}
+
 function formatProduct(product, req) {
   if (!product) return product;
   let imageUrl = product.image_url;
-  if (imageUrl && imageUrl.startsWith('/uploads/')) {
+
+  // If product has image_data or points to local/api endpoints, resolve with host
+  if (imageUrl && (imageUrl.startsWith('/api/') || imageUrl.startsWith('/uploads/'))) {
     const host = req.get('host');
     if (host) {
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       imageUrl = `${protocol}://${host}${imageUrl}`;
     }
   }
+
   return {
     ...product,
     image_url: imageUrl,
+    image_data: undefined, // Do not send large base64 payload in list JSON
   };
 }
 
@@ -93,6 +106,54 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
+ * GET /api/products/:id/image
+ * Streams persistent product image from database or local disk
+ */
+router.get('/:id/image', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await db.execute({
+      sql: 'SELECT id, image_data, image_url, file_name FROM products WHERE id = ? LIMIT 1',
+      args: [id],
+    });
+
+    if (result.rows.length === 0) {
+      return res.status(404).send('Image not found');
+    }
+
+    const product = result.rows[0];
+
+    // If persistent base64 data exists in database (Turso)
+    if (product.image_data) {
+      const buffer = Buffer.from(product.image_data, 'base64');
+      const mime = getMimeType(product.file_name);
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      return res.send(buffer);
+    }
+
+    // If it is a Cloudinary or remote image URL, redirect
+    if (product.image_url && (product.image_url.startsWith('http://') || product.image_url.startsWith('https://')) && !product.image_url.includes(`/api/products/${id}/image`)) {
+      return res.redirect(product.image_url);
+    }
+
+    // If local disk file exists
+    if (product.image_url && product.image_url.startsWith('/uploads/')) {
+      const filename = path.basename(product.image_url);
+      const filePath = path.join(uploadDir, filename);
+      if (fs.existsSync(filePath)) {
+        return res.sendFile(filePath);
+      }
+    }
+
+    return res.status(404).send('Image file not found on server');
+  } catch (err) {
+    console.error('[Products] Error serving image:', err);
+    return res.status(500).send('Error serving image file');
+  }
+});
+
+/**
  * GET /api/products/:id/download
  * Sends image as a forced file download with clean filename
  */
@@ -100,7 +161,7 @@ router.get('/:id/download', async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.execute({
-      sql: 'SELECT id, dc_code, product_name, image_url, public_id, file_name FROM products WHERE id = ? LIMIT 1',
+      sql: 'SELECT id, dc_code, product_name, image_url, image_data, public_id, file_name FROM products WHERE id = ? LIMIT 1',
       args: [id],
     });
 
@@ -112,6 +173,15 @@ router.get('/:id/download', async (req, res) => {
     const originalExt = path.extname(product.file_name || product.image_url) || '.jpg';
     const safeTitle = (product.product_name || 'product').replace(/[^a-zA-Z0-9_-]/g, '_');
     const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}${originalExt}`;
+
+    // If image is stored persistently in database
+    if (product.image_data) {
+      const buffer = Buffer.from(product.image_data, 'base64');
+      const mime = getMimeType(product.file_name);
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+      res.setHeader('Content-Type', mime);
+      return res.send(buffer);
+    }
 
     // If image is stored locally in /uploads
     if (product.image_url.startsWith('/uploads/')) {
@@ -180,8 +250,8 @@ router.post('/', authMiddleware, (req, res, next) => {
 
     const insertResult = await db.execute({
       sql: `
-        INSERT INTO products (dc_code, product_name, image_url, public_id, file_name)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO products (dc_code, product_name, image_url, public_id, file_name, image_data)
+        VALUES (?, ?, ?, ?, ?, ?)
         RETURNING id, dc_code, product_name, image_url, public_id, file_name, created_at
       `,
       args: [
@@ -190,10 +260,21 @@ router.post('/', authMiddleware, (req, res, next) => {
         saved.image_url,
         saved.public_id,
         saved.file_name,
+        saved.image_data || null,
       ],
     });
 
     const newProduct = insertResult.rows[0];
+
+    // If image_data is stored in DB, route image_url to persistent streaming endpoint
+    if (saved.image_data) {
+      const persistentPath = `/api/products/${newProduct.id}/image`;
+      await db.execute({
+        sql: 'UPDATE products SET image_url = ? WHERE id = ?',
+        args: [persistentPath, newProduct.id],
+      });
+      newProduct.image_url = persistentPath;
+    }
 
     return res.status(201).json({
       message: 'Product image uploaded successfully.',
@@ -225,7 +306,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     const { dc_code, product_name } = req.body;
 
     const existingResult = await db.execute({
-      sql: 'SELECT id, dc_code, product_name, image_url, public_id, file_name FROM products WHERE id = ? LIMIT 1',
+      sql: 'SELECT id, dc_code, product_name, image_url, image_data, public_id, file_name FROM products WHERE id = ? LIMIT 1',
       args: [id],
     });
 
@@ -240,6 +321,7 @@ router.put('/:id', authMiddleware, (req, res, next) => {
     let newImageUrl = current.image_url;
     let newPublicId = current.public_id;
     let newFileName = current.file_name;
+    let newImageData = current.image_data;
 
     // If a replacement image was uploaded
     if (req.file) {
@@ -248,18 +330,19 @@ router.put('/:id', authMiddleware, (req, res, next) => {
       // Delete old image asset
       await deleteImage(current.public_id, current.image_url);
 
-      newImageUrl = saved.image_url;
+      newImageUrl = saved.image_data ? `/api/products/${id}/image` : saved.image_url;
       newPublicId = saved.public_id;
       newFileName = saved.file_name;
+      newImageData = saved.image_data || null;
     }
 
     await db.execute({
       sql: `
         UPDATE products
-        SET dc_code = ?, product_name = ?, image_url = ?, public_id = ?, file_name = ?
+        SET dc_code = ?, product_name = ?, image_url = ?, public_id = ?, file_name = ?, image_data = ?
         WHERE id = ?
       `,
-      args: [newDcCode, newProductName, newImageUrl, newPublicId, newFileName, id],
+      args: [newDcCode, newProductName, newImageUrl, newPublicId, newFileName, newImageData, id],
     });
 
     const updatedResult = await db.execute({

@@ -76,9 +76,16 @@ async function initDatabase() {
         image_url TEXT NOT NULL,
         public_id TEXT NOT NULL,
         file_name TEXT,
+        image_data TEXT,
         created_at TEXT DEFAULT CURRENT_TIMESTAMP
       );
     `);
+
+    try {
+      await db.execute('ALTER TABLE products ADD COLUMN image_data TEXT');
+    } catch (e) {
+      // Column already exists, safe to ignore
+    }
 
     await db.execute(`
       CREATE INDEX IF NOT EXISTS idx_products_dc ON products(dc_code);
