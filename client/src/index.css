@@ -361,6 +361,217 @@ body.dark .download-btn {
   opacity: 0.92;
 }
 
+/* Split Download Button & Menu */
+.download-group {
+  position: relative;
+  display: flex;
+  width: 100%;
+  border-radius: 13px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.download-btn-main {
+  flex: 1;
+  border: 0;
+  border-radius: 13px 0 0 13px;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: var(--card);
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all .2s;
+}
+
+.download-btn-caret {
+  border: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 0 13px 13px 0;
+  padding: 0 12px;
+  background: var(--ink);
+  color: var(--card);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s;
+}
+
+.dark .download-btn-main,
+body.dark .download-btn-main,
+.dark .download-btn-caret,
+body.dark .download-btn-caret {
+  background: #00a651;
+  color: #ffffff;
+}
+
+.dark .download-btn-caret,
+body.dark .download-btn-caret {
+  border-left-color: rgba(255, 255, 255, 0.25);
+}
+
+.download-btn-main:hover,
+.download-btn-caret:hover {
+  filter: brightness(1.1);
+}
+
+.download-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 270px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: menuPop .15s ease-out;
+}
+
+@keyframes menuPop {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.download-menu-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background .15s;
+  width: 100%;
+}
+
+.download-menu-item:hover {
+  background: var(--bg);
+}
+
+.download-menu-item .item-title {
+  font-weight: 700;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  justify-content: space-between;
+}
+
+.download-menu-item .item-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.resolution-badge {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  background: rgba(0, 166, 81, 0.95);
+  color: #fff;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 4px 10px rgba(0, 166, 81, 0.3);
+}
+
+/* Modal Enhancements */
+.preview-mode-tabs {
+  display: flex;
+  background: var(--bg);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.preview-tab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 9px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+
+.preview-tab-btn.active {
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.preview-box {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 14px;
+  min-height: 260px;
+}
+
+.dark .preview-box,
+body.dark .preview-box {
+  background: #18221d;
+}
+
+.preview-box.square-1080 {
+  aspect-ratio: 1 / 1;
+  max-height: 380px;
+  width: 100%;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.preview-crop-guides {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 2px dashed rgba(0, 166, 81, 0.5);
+  border-radius: 14px;
+}
+
+.preview-spec-tag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 18px;
+  padding: 7px 14px;
+  background: var(--bg);
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+
 .empty {
   padding: 45px;
   text-align: center;

@@ -216,10 +216,10 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDownload = async (product) => {
+  const handleDownload = async (product, options = { size: 1080, fit: 'cover' }) => {
     try {
       setDownloadingId(product.id);
-      await downloadProductImage(product);
+      await downloadProductImage(product, options);
     } finally {
       setDownloadingId(null);
     }
@@ -299,7 +299,7 @@ export default function AdminDashboard() {
                 Upload New Product Image
               </h2>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                Attach an image and assign its SPAR DC code and product title.
+                Attach any image ratio — downloads are automatically cropped and formatted to 1080 × 1080 px.
               </p>
             </div>
           </div>
@@ -519,8 +519,8 @@ export default function AdminDashboard() {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => handleDownload(p)}
-                          title="Download Image"
+                          onClick={() => handleDownload(p, { size: 1080, fit: 'cover' })}
+                          title="Download 1080 × 1080 Image (Auto-Cropped)"
                           disabled={downloadingId === p.id}
                           className="p-2 rounded-lg text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                         >

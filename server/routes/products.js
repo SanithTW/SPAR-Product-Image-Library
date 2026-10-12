@@ -7,6 +7,13 @@ const { db } = require('../db');
 const { authMiddleware } = require('../middleware/auth');
 const { upload, saveImage, deleteImage, uploadDir } = require('../services/storage');
 
+let sharp;
+try {
+  sharp = require('sharp');
+} catch (e) {
+  console.warn('[Products] Sharp is not installed or available:', e.message);
+}
+
 const router = express.Router();
 
 function getMimeType(fileName) {
@@ -16,6 +23,34 @@ function getMimeType(fileName) {
   if (ext === '.gif') return 'image/gif';
   if (ext === '.svg') return 'image/svg+xml';
   return 'image/jpeg';
+}
+
+/**
+ * Retrieve raw binary image Buffer from database, local disk, or remote URL
+ */
+async function getRawProductBuffer(product) {
+  if (product.image_data) {
+    return Buffer.from(product.image_data, 'base64');
+  }
+
+  if (product.image_url && product.image_url.startsWith('/uploads/')) {
+    const filename = path.basename(product.image_url);
+    const filePath = path.join(uploadDir, filename);
+    if (fs.existsSync(filePath)) {
+      return await fs.promises.readFile(filePath);
+    }
+  }
+
+  if (product.image_url && (product.image_url.startsWith('http://') || product.image_url.startsWith('https://'))) {
+    const response = await fetch(product.image_url);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch remote image: ${response.statusText}`);
+    }
+    const arrayBuf = await response.arrayBuffer();
+    return Buffer.from(arrayBuf);
+  }
+
+  return null;
 }
 
 function formatProduct(product, req) {
@@ -155,7 +190,10 @@ router.get('/:id/image', async (req, res) => {
 
 /**
  * GET /api/products/:id/download
- * Sends image as a forced file download with clean filename
+ * Sends image as a download, cropped nicely & resized to 1080x1080 (or custom size/original)
+ * Query params:
+ *  - size: 1080 (default) | number | 'original'
+ *  - fit: 'cover' (center square crop, default) | 'contain' (fit with white background padding)
  */
 router.get('/:id/download', async (req, res) => {
   try {
@@ -172,45 +210,67 @@ router.get('/:id/download', async (req, res) => {
     const product = result.rows[0];
     const originalExt = path.extname(product.file_name || product.image_url) || '.jpg';
     const safeTitle = (product.product_name || 'product').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}${originalExt}`;
 
-    // If image is stored persistently in database
-    if (product.image_data) {
-      const buffer = Buffer.from(product.image_data, 'base64');
-      const mime = getMimeType(product.file_name);
+    // Parse requested size and fit mode
+    // Default size is 1080x1080 square
+    const reqSize = req.query.size;
+    const isOriginal = reqSize === 'original' || reqSize === '0';
+    const targetSize = !isOriginal ? (parseInt(reqSize, 10) || 1080) : null;
+    const fitMode = req.query.fit === 'contain' ? 'contain' : 'cover';
+
+    const rawBuffer = await getRawProductBuffer(product);
+    if (!rawBuffer) {
+      return res.status(404).json({ error: 'Image file could not be found or loaded.' });
+    }
+
+    // If original requested or Sharp is not loaded, stream original
+    if (isOriginal || !sharp) {
+      const mime = getMimeType(product.file_name || product.image_url);
+      const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}_original${originalExt}`;
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
       res.setHeader('Content-Type', mime);
-      return res.send(buffer);
+      return res.send(rawBuffer);
     }
 
-    // If image is stored locally in /uploads
-    if (product.image_url.startsWith('/uploads/')) {
-      const filename = path.basename(product.image_url);
-      const filePath = path.join(uploadDir, filename);
+    // Process image with Sharp:
+    // 1. Auto-orient based on EXIF (prevents smartphone photos from appearing sideways)
+    // 2. Crop nicely and resize to targetSize (1080x1080)
+    // 3. Flatten transparent backgrounds against crisp white (#ffffff)
+    // 4. Output optimized high-quality JPEG
+    try {
+      let pipeline = sharp(rawBuffer).rotate();
 
-      if (!fs.existsSync(filePath)) {
-        return res.status(404).json({ error: 'Image file does not exist on server.' });
+      if (fitMode === 'cover') {
+        // Smart center-crop to square 1:1 and resize to 1080x1080
+        pipeline = pipeline.resize(targetSize, targetSize, {
+          fit: 'cover',
+          position: 'center',
+        });
+      } else {
+        // Fit full image inside 1080x1080 on clean white background
+        pipeline = pipeline.resize(targetSize, targetSize, {
+          fit: 'contain',
+          background: { r: 255, g: 255, b: 255, alpha: 1 },
+        });
       }
 
-      return res.download(filePath, downloadFilename);
-    }
+      const processedBuffer = await pipeline
+        .flatten({ background: '#ffffff' })
+        .jpeg({ quality: 92, mozjpeg: true })
+        .toBuffer();
 
-    // Remote Cloudinary or external image URL: Stream and force attachment download
-    const urlObj = new URL(product.image_url);
-    const client = urlObj.protocol === 'https:' ? https : http;
-
-    client.get(product.image_url, (streamRes) => {
-      if (streamRes.statusCode >= 400) {
-        return res.status(streamRes.statusCode).json({ error: 'Failed to retrieve remote image.' });
-      }
-
+      const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}_${targetSize}x${targetSize}.jpg`;
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
-      res.setHeader('Content-Type', streamRes.headers['content-type'] || 'image/jpeg');
-      streamRes.pipe(res);
-    }).on('error', (err) => {
-      console.error('[Download] Remote stream error:', err);
-      return res.status(500).json({ error: 'Failed to download image file.' });
-    });
+      res.setHeader('Content-Type', 'image/jpeg');
+      return res.send(processedBuffer);
+    } catch (sharpError) {
+      console.warn('[Products] Sharp 1080x1080 processing failed, falling back to original:', sharpError.message);
+      const mime = getMimeType(product.file_name || product.image_url);
+      const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}${originalExt}`;
+      res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
+      res.setHeader('Content-Type', mime);
+      return res.send(rawBuffer);
+    }
 
   } catch (err) {
     console.error('[Products] Download error:', err);

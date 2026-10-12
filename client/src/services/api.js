@@ -64,9 +64,17 @@ export const checkHealth = async () => {
   return response.data;
 };
 
-export const getDownloadUrl = (id) => {
+export const getDownloadUrl = (id, options = {}) => {
   const base = import.meta.env.VITE_API_URL || '/api';
-  return `${base}/products/${id}/download`;
+  const params = new URLSearchParams();
+  if (options.size !== undefined) {
+    params.set('size', options.size);
+  }
+  if (options.fit) {
+    params.set('fit', options.fit);
+  }
+  const query = params.toString() ? `?${params.toString()}` : '';
+  return `${base}/products/${id}/download${query}`;
 };
 
 export const getImageUrl = (url) => {

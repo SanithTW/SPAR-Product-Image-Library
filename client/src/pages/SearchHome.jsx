@@ -34,10 +34,10 @@ export default function SearchHome({ refreshTrigger }) {
     setSearchQuery(searchInput.trim());
   };
 
-  const handleDownload = async (product) => {
+  const handleDownload = async (product, options = { size: 1080, fit: 'cover' }) => {
     try {
       setDownloadingId(product.id);
-      await downloadProductImage(product);
+      await downloadProductImage(product, options);
     } catch (err) {
       console.error('Download error:', err);
     } finally {
@@ -54,7 +54,7 @@ export default function SearchHome({ refreshTrigger }) {
             <i></i> SPAR Product Image Library
           </span>
           <h1>Find the right product image. Fast.</h1>
-          <p>Search by DC code or product name, preview the image, and download the original in one click.</p>
+          <p>Search by DC code or product name, preview, and download auto-formatted in 1080 × 1080 px.</p>
           
           <form onSubmit={handleSearchSubmit} className="search-shell">
             <input
@@ -78,7 +78,7 @@ export default function SearchHome({ refreshTrigger }) {
             <span>•</span>
             <span>DC code + product name search</span>
             <span>•</span>
-            <span>Original downloads</span>
+            <span>⚡ Standard 1080 × 1080 HQ Crop</span>
           </div>
         </div>
       </section>
