@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getProducts, uploadProduct, updateProduct, deleteProduct, checkHealth, getImageUrl } from '../services/api';
 import { downloadProductImage } from '../utils/downloadHelper';
+import BulkUploadSection from '../components/BulkUploadSection';
 
 export default function AdminDashboard() {
   const [products, setProducts] = useState([]);
@@ -438,6 +439,20 @@ export default function AdminDashboard() {
           </div>
         </form>
       </section>
+
+      {/* Bulk Upload: many images at once, DC code + name parsed from file names */}
+      <BulkUploadSection
+        existingProducts={products}
+        onComplete={async ({ uploaded, failed, stopped }) => {
+          await loadData();
+          if (uploaded > 0) {
+            setStatusMessage(`${uploaded} product image${uploaded === 1 ? '' : 's'} uploaded${stopped ? ' (stopped early)' : ''}.`);
+          }
+          if (failed > 0) {
+            setErrorMessage(`${failed} image${failed === 1 ? '' : 's'} failed to upload — see the Bulk Upload list to retry.`);
+          }
+        }}
+      />
 
       {/* Library Table / Management Section */}
       <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-6 sm:p-8 shadow-sm">
