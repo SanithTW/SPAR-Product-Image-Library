@@ -976,3 +976,121 @@ footer {
     flex-direction: column;
   }
 }
+
+/* ---------- Bulk download ---------- */
+.bulk-download-btn {
+  border: 1px solid var(--green);
+  background: transparent;
+  color: var(--green);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .2s;
+}
+
+.bulk-download-btn:hover {
+  background: var(--green);
+  color: #fff;
+}
+
+.bulk-download-card {
+  width: min(600px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.bulk-codes {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink);
+  font-family: ui-monospace, "JetBrains Mono", Consolas, monospace;
+  font-size: 13px;
+  resize: vertical;
+  outline: none;
+}
+
+.bulk-codes:focus {
+  border-color: var(--green);
+}
+
+.bulk-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.bulk-summary .ok { color: var(--green); }
+.bulk-summary .warn { color: #d97706; }
+
+.bulk-missing {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.bulk-missing summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.bulk-missing div {
+  margin-top: 6px;
+  max-height: 110px;
+  overflow-y: auto;
+  font-family: ui-monospace, Consolas, monospace;
+  word-break: break-word;
+}
+
+.bulk-note {
+  font-size: 13px;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin: 14px 0;
+}
+
+.bulk-note-ok { color: var(--green); border-color: var(--green); }
+.bulk-note-warn { color: #b45309; border-color: #f59e0b; }
+.bulk-note-error { color: #dc2626; border-color: #f87171; }
+
+.bulk-progress { margin: 16px 0 6px; }
+
+.bulk-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.bulk-progress-track {
+  height: 8px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.bulk-progress-track div {
+  height: 100%;
+  background: var(--green);
+  transition: width .2s;
+}
+
+.login-submit:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.bulk-cancel { background: #475569; }
+
+@media (max-width: 640px) {
+  .toolbar { flex-wrap: wrap; }
+}
