@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getProducts } from '../services/api';
 import ProductCard from '../components/ProductCard';
 import ImagePreviewModal from '../components/ImagePreviewModal';
+import BulkDownloadModal from '../components/BulkDownloadModal';
 import { downloadProductImage } from '../utils/downloadHelper';
 
 export default function SearchHome({ refreshTrigger }) {
@@ -11,6 +12,7 @@ export default function SearchHome({ refreshTrigger }) {
   const [loading, setLoading] = useState(true);
   const [previewProduct, setPreviewProduct] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const fetchProductsList = useCallback(async (q = '') => {
     try {
@@ -94,6 +96,9 @@ export default function SearchHome({ refreshTrigger }) {
                 : 'Showing all sample products'}
             </p>
           </div>
+          <button type="button" className="bulk-download-btn" onClick={() => setBulkOpen(true)}>
+            ⬇ Bulk download
+          </button>
         </div>
 
         {/* Product Grid */}
@@ -124,6 +129,8 @@ export default function SearchHome({ refreshTrigger }) {
         <span>SPAR Product Image Library · Official portal</span>
         <span>Light / Dark mode · Responsive desktop + mobile</span>
       </footer>
+
+      {bulkOpen && <BulkDownloadModal onClose={() => setBulkOpen(false)} />}
 
       {/* Full Preview Modal */}
       {previewProduct && (
