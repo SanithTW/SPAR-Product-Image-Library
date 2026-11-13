@@ -36,7 +36,7 @@ export default function SearchHome({ refreshTrigger }) {
     setSearchQuery(searchInput.trim());
   };
 
-  const handleDownload = async (product, options = { size: 1080, fit: 'cover' }) => {
+  const handleDownload = async (product, options = { size: 1080, fit: 'contain' }) => {
     try {
       setDownloadingId(product.id);
       await downloadProductImage(product, options);

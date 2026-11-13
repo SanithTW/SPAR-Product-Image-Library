@@ -80,7 +80,7 @@ function saveBlob(blob, filename) {
  *   signal: AbortSignal to cancel
  * @returns {{ saved: number, failed: {product, error}[] }}
  */
-export async function downloadProductsZip(products, { format = 'cover', zipName, notes = {}, onProgress, signal } = {}) {
+export async function downloadProductsZip(products, { format = 'contain', zipName, notes = {}, onProgress, signal } = {}) {
   const zip = new JSZip();
   const usedNames = new Set();
   const failed = [];

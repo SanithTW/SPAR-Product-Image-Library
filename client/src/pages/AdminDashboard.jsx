@@ -217,7 +217,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleDownload = async (product, options = { size: 1080, fit: 'cover' }) => {
+  const handleDownload = async (product, options = { size: 1080, fit: 'contain' }) => {
     try {
       setDownloadingId(product.id);
       await downloadProductImage(product, options);
@@ -534,8 +534,8 @@ export default function AdminDashboard() {
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
-                          onClick={() => handleDownload(p, { size: 1080, fit: 'cover' })}
-                          title="Download 1080 × 1080 Image (Auto-Cropped)"
+                          onClick={() => handleDownload(p, { size: 1080, fit: 'contain' })}
+                          title="Download 1080 × 1080 Image (Fit Full)"
                           disabled={downloadingId === p.id}
                           className="p-2 rounded-lg text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors disabled:opacity-50"
                         >

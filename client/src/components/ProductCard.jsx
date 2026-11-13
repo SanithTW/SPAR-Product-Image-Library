@@ -30,10 +30,10 @@ export default function ProductCard({ product, onPreview, onDownload, isDownload
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [menuOpen]);
 
-  // Default: download 1080x1080 center crop
+  // Default: download 1080x1080 fit (whole product on white)
   const handlePrimaryDownload = (e) => {
     e.stopPropagation();
-    onDownload(product, { size: 1080, fit: 'cover' });
+    onDownload(product, { size: 1080, fit: 'contain' });
   };
 
   const handleSelectOption = (e, options) => {
@@ -76,7 +76,7 @@ export default function ProductCard({ product, onPreview, onDownload, isDownload
             className="download-btn-main"
             onClick={handlePrimaryDownload}
             disabled={isDownloading}
-            title="Download in 1080 × 1080 pixels (Smart Crop)"
+            title="Download in 1080 × 1080 pixels (Fit Full)"
           >
             <span>↓</span>
             <span>{isDownloading ? 'Downloading…' : 'Download 1080 × 1080'}</span>
@@ -111,7 +111,7 @@ export default function ProductCard({ product, onPreview, onDownload, isDownload
                     HQ
                   </span>
                 </div>
-                <span className="item-sub">Cropped nicely to square (Default)</span>
+                <span className="item-sub">Cropped nicely to square</span>
               </button>
 
               <button
@@ -122,7 +122,7 @@ export default function ProductCard({ product, onPreview, onDownload, isDownload
                 <div className="item-title">
                   <span>1080 × 1080 (Fit Full)</span>
                 </div>
-                <span className="item-sub">Full image on clean white margin</span>
+                <span className="item-sub">Full image on clean white margin (Default)</span>
               </button>
 
               <button

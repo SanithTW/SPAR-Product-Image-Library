@@ -12,7 +12,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export default function BulkDownloadModal({ onClose }) {
   const [mode, setMode] = useState('codes'); // 'codes' | 'all'
-  const [format, setFormat] = useState('cover');
+  const [format, setFormat] = useState('contain');
   const [codesText, setCodesText] = useState('');
   const [allProducts, setAllProducts] = useState(null);
   const [loadError, setLoadError] = useState(null);
