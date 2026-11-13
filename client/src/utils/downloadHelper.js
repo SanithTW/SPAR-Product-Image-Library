@@ -23,7 +23,7 @@ function triggerDownload(url, filename) {
 /**
  * Client-side HTML5 Canvas fallback to crop and resize image to 1080x1080
  */
-function cropAndDownloadViaCanvas(product, size = 1080, fit = 'cover', filename) {
+function cropAndDownloadViaCanvas(product, size = 1080, fit = 'contain', filename) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -102,11 +102,11 @@ function cropAndDownloadViaCanvas(product, size = 1080, fit = 'cover', filename)
  * @param {object} product - Product record
  * @param {object} [options] - Options:
  *    - size: 1080 | 'original' (default: 1080)
- *    - fit: 'cover' (center square crop, default) | 'contain' (full fit with white padding)
+ *    - fit: 'contain' (full fit with white padding, default) | 'cover' (center square crop)
  */
 export async function downloadProductImage(product, options = {}) {
   const size = options.size !== undefined ? options.size : 1080;
-  const fit = options.fit || 'cover';
+  const fit = options.fit || 'contain';
 
   const safeTitle = (product.product_name || 'product').replace(/[^a-zA-Z0-9_-]/g, '_');
   const originalExt = product.file_name ? product.file_name.substring(product.file_name.lastIndexOf('.')) : '.jpg';
