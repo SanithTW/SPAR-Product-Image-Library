@@ -15,7 +15,7 @@ router.post('/access-code', async (req, res) => {
     if (!code) return invalid();
 
     const result = await db.execute({
-      sql: 'SELECT id, label, expires_at FROM access_codes WHERE code = ? LIMIT 1',
+      sql: 'SELECT id, label, expires_at, watermark FROM access_codes WHERE code = ? LIMIT 1',
       args: [code],
     });
     const row = result.rows[0];
@@ -37,7 +37,13 @@ router.post('/access-code', async (req, res) => {
       JWT_SECRET,
       permanent ? {} : { expiresIn: secondsLeft }
     );
-    return res.json({ token, label: row.label, expiresAt: row.expires_at, permanent });
+    return res.json({
+      token,
+      label: row.label,
+      expiresAt: row.expires_at,
+      permanent,
+      watermark: Number(row.watermark) !== 0,
+    });
   } catch (err) {
     console.error('[Auth] Access code error:', err);
     return res.status(500).json({ error: 'Internal server error checking access code.' });

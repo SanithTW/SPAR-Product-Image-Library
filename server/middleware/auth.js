@@ -37,7 +37,9 @@ function authMiddleware(req, res, next) {
 /**
  * Download routes: allowed for admins, or for holders of an access code that
  * still exists and has not expired. The code is re-checked on every request so
- * deleting it in the admin workspace cuts access off immediately.
+ * deleting it (or changing its watermark setting) in the admin workspace takes
+ * effect immediately.
+ * Sets req.watermark: whether this download should carry the SPAR watermark.
  */
 function downloadAuth(req, res, next) {
   const decoded = readToken(req);
@@ -47,19 +49,21 @@ function downloadAuth(req, res, next) {
   if (!decoded) return deny();
   if (decoded.role !== 'guest') {
     req.user = decoded;
+    req.watermark = true;
     return next();
   }
 
   // Lazy require avoids a circular import at startup.
   const { db } = require('../db');
   db.execute({
-    sql: 'SELECT id, expires_at FROM access_codes WHERE id = ? LIMIT 1',
+    sql: 'SELECT id, expires_at, watermark FROM access_codes WHERE id = ? LIMIT 1',
     args: [decoded.codeId],
   })
     .then((result) => {
       const row = result.rows[0];
       if (!row || new Date(row.expires_at).getTime() <= Date.now()) return deny();
       req.user = decoded;
+      req.watermark = Number(row.watermark) !== 0;
       next();
     })
     .catch(next);

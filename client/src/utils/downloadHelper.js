@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { getDownloadUrl, getImageUrl, authHeaders } from '../services/api';
+import { getDownloadUrl, getImageUrl, authHeaders, getGuestAccess } from '../services/api';
+import sparLogo from '../assets/spar-logo.png';
 
 /**
  * Triggers a client-side file download for a blob or data URL
@@ -20,10 +21,32 @@ function triggerDownload(url, filename) {
   }, 1500);
 }
 
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+/** SPAR logo in the bottom-right corner; same size, margin and opacity as the server watermark. */
+function drawWatermark(ctx, logo, dim) {
+  if (!logo) return;
+  const margin = Math.round(dim * 0.03);
+  const w = Math.min(Math.max(90, Math.round(dim * 0.18)), dim - 2 * margin);
+  const h = Math.round((logo.naturalHeight / logo.naturalWidth) * w);
+  ctx.save();
+  ctx.globalAlpha = 0.85;
+  ctx.drawImage(logo, dim - w - margin, dim - h - margin, w, h);
+  ctx.restore();
+}
+
 /**
  * Client-side HTML5 Canvas fallback to crop and resize image to 1080x1080
  */
-function cropAndDownloadViaCanvas(product, size = 1080, fit = 'contain', filename) {
+async function cropAndDownloadViaCanvas(product, size = 1080, fit = 'contain', filename) {
+  const logo = await loadImage(sparLogo).catch(() => null);
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -72,6 +95,10 @@ function cropAndDownloadViaCanvas(product, size = 1080, fit = 'contain', filenam
           }
           ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetDim, targetDim);
         }
+
+        // Admins always get the watermark; code holders follow their code's setting.
+        const isAdmin = Boolean(localStorage.getItem('spar_admin_token'));
+        if (isAdmin || getGuestAccess()?.watermark !== false) drawWatermark(ctx, logo, targetDim);
 
         canvas.toBlob(
           (blob) => {

@@ -65,9 +65,14 @@ export const listAccessCodes = async () => {
   return response.data.codes || [];
 };
 
-/** expiry: { hours } | { expiresAt } | { permanent: true } */
-export const createAccessCode = async (label, expiry) => {
-  const response = await api.post('/access-codes', { label, ...expiry });
+/** expiry: { hours } | { expiresAt } | { permanent: true }; watermark: add SPAR logo to downloads */
+export const createAccessCode = async (label, expiry, watermark = true) => {
+  const response = await api.post('/access-codes', { label, ...expiry, watermark });
+  return response.data.accessCode;
+};
+
+export const setAccessCodeWatermark = async (id, watermark) => {
+  const response = await api.patch(`/access-codes/${id}`, { watermark });
   return response.data.accessCode;
 };
 

@@ -64,7 +64,13 @@ export function AuthProvider({ children }) {
 
   const redeemCode = async (code) => {
     const data = await redeemAccessCode(code);
-    const access = { token: data.token, label: data.label, expiresAt: data.expiresAt, permanent: Boolean(data.permanent) };
+    const access = {
+      token: data.token,
+      label: data.label,
+      expiresAt: data.expiresAt,
+      permanent: Boolean(data.permanent),
+      watermark: data.watermark !== false,
+    };
     saveGuestAccess(access);
     setGuestAccess(access);
     return access;

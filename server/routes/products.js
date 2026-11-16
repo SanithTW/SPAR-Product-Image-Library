@@ -6,6 +6,7 @@ const http = require('http');
 const { db } = require('../db');
 const { authMiddleware, downloadAuth } = require('../middleware/auth');
 const { upload, saveImage, deleteImage, uploadDir } = require('../services/storage');
+const { watermarkRaw } = require('../services/watermark');
 
 let sharp;
 try {
@@ -15,6 +16,17 @@ try {
 }
 
 const router = express.Router();
+
+/** Watermark an original-size image and re-encode it in its own format. */
+async function watermarkOriginal(buffer, mime) {
+  const toJpeg = mime === 'image/jpeg';
+  let pipeline = sharp(buffer).rotate();
+  if (toJpeg) pipeline = pipeline.flatten({ background: '#ffffff' }); // JPEG has no transparency
+  const marked = await watermarkRaw(await pipeline.raw().toBuffer({ resolveWithObject: true }));
+  if (mime === 'image/png') return marked.png().toBuffer();
+  if (mime === 'image/webp') return marked.webp({ quality: 92 }).toBuffer();
+  return marked.jpeg({ quality: 95, mozjpeg: true }).toBuffer();
+}
 
 function getMimeType(fileName) {
   const ext = path.extname(fileName || '').toLowerCase();
@@ -223,20 +235,32 @@ router.get('/:id/download', downloadAuth, async (req, res) => {
       return res.status(404).json({ error: 'Image file could not be found or loaded.' });
     }
 
-    // If original requested or Sharp is not loaded, stream original
+    // Set by downloadAuth: false only for access codes the admin created without a watermark.
+    const addWatermark = req.watermark !== false;
+
+    // Original size: keep the source format and dimensions, add the SPAR watermark.
     if (isOriginal || !sharp) {
       const mime = getMimeType(product.file_name || product.image_url);
       const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}_original${originalExt}`;
+      let body = rawBuffer;
+      if (sharp && addWatermark) {
+        try {
+          body = await watermarkOriginal(rawBuffer, mime);
+        } catch (wmError) {
+          console.warn('[Products] Watermarking original failed, sending it unmarked:', wmError.message);
+        }
+      }
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
       res.setHeader('Content-Type', mime);
-      return res.send(rawBuffer);
+      return res.send(body);
     }
 
     // Process image with Sharp:
     // 1. Auto-orient based on EXIF (prevents smartphone photos from appearing sideways)
     // 2. Crop nicely and resize to targetSize (1080x1080)
     // 3. Flatten transparent backgrounds against crisp white (#ffffff)
-    // 4. Output optimized high-quality JPEG
+    // 4. Add the SPAR logo watermark in the bottom-right corner
+    // 5. Output optimized high-quality JPEG
     try {
       let pipeline = sharp(rawBuffer).rotate();
 
@@ -254,10 +278,12 @@ router.get('/:id/download', downloadAuth, async (req, res) => {
         });
       }
 
-      const processedBuffer = await pipeline
-        .flatten({ background: '#ffffff' })
-        .jpeg({ quality: 92, mozjpeg: true })
-        .toBuffer();
+      pipeline = pipeline.flatten({ background: '#ffffff' });
+      if (addWatermark) {
+        // Render to raw pixels first so the watermark goes on top of the finished square.
+        pipeline = await watermarkRaw(await pipeline.raw().toBuffer({ resolveWithObject: true }));
+      }
+      const processedBuffer = await pipeline.jpeg({ quality: 92, mozjpeg: true }).toBuffer();
 
       const downloadFilename = `SPAR_${product.dc_code}_${safeTitle}_${targetSize}x${targetSize}.jpg`;
       res.setHeader('Content-Disposition', `attachment; filename="${downloadFilename}"`);
