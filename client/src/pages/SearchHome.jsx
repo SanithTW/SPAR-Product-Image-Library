@@ -4,6 +4,7 @@ import ProductCard from '../components/ProductCard';
 import ImagePreviewModal from '../components/ImagePreviewModal';
 import BulkDownloadModal from '../components/BulkDownloadModal';
 import { downloadProductImage } from '../utils/downloadHelper';
+import { useAuth } from '../context/AuthContext';
 
 export default function SearchHome({ refreshTrigger }) {
   const [searchInput, setSearchInput] = useState('');
@@ -13,6 +14,7 @@ export default function SearchHome({ refreshTrigger }) {
   const [previewProduct, setPreviewProduct] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const { isAuthenticated, guestAccess, endGuestAccess, ensureDownloadAccess } = useAuth();
 
   const fetchProductsList = useCallback(async (q = '') => {
     try {
@@ -37,15 +39,29 @@ export default function SearchHome({ refreshTrigger }) {
   };
 
   const handleDownload = async (product, options = { size: 1080, fit: 'contain' }) => {
+    if (!(await ensureDownloadAccess())) return;
     try {
       setDownloadingId(product.id);
       await downloadProductImage(product, options);
     } catch (err) {
-      console.error('Download error:', err);
+      if (err.accessRequired) {
+        // The code expired or was removed since it was entered: ask again, then retry once.
+        setDownloadingId(null);
+        if (await ensureDownloadAccess('Your access code has expired or was removed. Enter a new code to continue.')) {
+          setDownloadingId(product.id);
+          await downloadProductImage(product, options).catch((e) => console.error('Download error:', e));
+        }
+      } else {
+        console.error('Download error:', err);
+      }
     } finally {
       setDownloadingId(null);
     }
   };
+
+  const accessUntil = guestAccess
+    ? new Date(guestAccess.expiresAt).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+    : '';
 
   return (
     <>
@@ -96,9 +112,17 @@ export default function SearchHome({ refreshTrigger }) {
                 : 'Showing all sample products'}
             </p>
           </div>
-          <button type="button" className="bulk-download-btn" onClick={() => setBulkOpen(true)}>
-            ⬇ Bulk download
-          </button>
+          <div className="toolbar-actions">
+            {!isAuthenticated && guestAccess && (
+              <span className="access-status" title={`Access code for ${guestAccess.label}`}>
+                🔓 Downloads unlocked until {accessUntil}
+                <button type="button" onClick={endGuestAccess}>End</button>
+              </span>
+            )}
+            <button type="button" className="bulk-download-btn" onClick={() => setBulkOpen(true)}>
+              ⬇ Bulk download
+            </button>
+          </div>
         </div>
 
         {/* Product Grid */}

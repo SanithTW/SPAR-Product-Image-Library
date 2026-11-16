@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { getProducts } from '../services/api';
 import { downloadProductsZip, parseDcCodes } from '../utils/bulkDownload';
+import { useAuth } from '../context/AuthContext';
 
 const FORMATS = [
   { key: 'cover', label: '1080 × 1080 crop' },
@@ -11,6 +12,7 @@ const FORMATS = [
 const today = () => new Date().toISOString().slice(0, 10);
 
 export default function BulkDownloadModal({ onClose }) {
+  const { ensureDownloadAccess } = useAuth();
   const [mode, setMode] = useState('codes'); // 'codes' | 'all'
   const [format, setFormat] = useState('contain');
   const [codesText, setCodesText] = useState('');
@@ -50,6 +52,7 @@ export default function BulkDownloadModal({ onClose }) {
 
   const start = async () => {
     if (!selected.length) return;
+    if (!(await ensureDownloadAccess())) return;
     const controller = new AbortController();
     abortRef.current = controller;
     setResult(null);
@@ -71,7 +74,12 @@ export default function BulkDownloadModal({ onClose }) {
       });
       setResult({ ok: true, saved, failed: failed.length, zipName });
     } catch (err) {
-      setResult(err.name === 'AbortError' ? { cancelled: true } : { ok: false, message: err.message });
+      if (err.accessRequired) {
+        setResult({ ok: false, message: 'Your access code has expired. Enter a new code and press Download again.' });
+        ensureDownloadAccess('Your access code has expired or was removed. Enter a new code to continue.');
+      } else {
+        setResult(err.name === 'AbortError' ? { cancelled: true } : { ok: false, message: err.message });
+      }
     } finally {
       setProgress(null);
       abortRef.current = null;

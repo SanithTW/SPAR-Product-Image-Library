@@ -1,5 +1,5 @@
 import JSZip from 'jszip';
-import { getDownloadUrl, getImageUrl } from '../services/api';
+import { getDownloadUrl, authHeaders } from '../services/api';
 
 const CONCURRENCY = 6;
 
@@ -37,19 +37,28 @@ function extensionFor(product, format, contentType) {
 }
 
 function imageUrlFor(product, format) {
-  if (format === 'original') return getImageUrl(product.image_url);
+  if (format === 'original') return getDownloadUrl(product.id, { size: 'original' });
   return getDownloadUrl(product.id, { size: 1080, fit: format === 'contain' ? 'contain' : 'cover' });
+}
+
+/** Thrown when the server refuses because the visitor has no valid access code. */
+export class AccessRequiredError extends Error {
+  constructor() {
+    super('Your access code has expired or was removed.');
+    this.accessRequired = true;
+  }
 }
 
 async function fetchImage(url, signal) {
   let lastError;
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const res = await fetch(url, { signal });
+      const res = await fetch(url, { signal, headers: authHeaders() });
+      if (res.status === 401 || res.status === 403) throw new AccessRequiredError();
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return { blob: await res.blob(), contentType: res.headers.get('content-type') };
     } catch (err) {
-      if (signal?.aborted) throw err;
+      if (signal?.aborted || err.accessRequired) throw err;
       lastError = err;
     }
   }
@@ -86,6 +95,7 @@ export async function downloadProductsZip(products, { format = 'contain', zipNam
   const failed = [];
   let done = 0;
   let next = 0;
+  let accessLost = false;
 
   const uniqueName = (base, ext) => {
     let name = `${base}${ext}`;
@@ -98,7 +108,7 @@ export async function downloadProductsZip(products, { format = 'contain', zipNam
 
   const worker = async () => {
     while (next < products.length) {
-      if (signal?.aborted) return;
+      if (signal?.aborted || accessLost) return;
       const product = products[next++];
       try {
         const { blob, contentType } = await fetchImage(imageUrlFor(product, format), signal);
@@ -106,6 +116,10 @@ export async function downloadProductsZip(products, { format = 'contain', zipNam
         zip.file(uniqueName(base, extensionFor(product, format, contentType)), blob);
       } catch (err) {
         if (signal?.aborted) return;
+        if (err.accessRequired) {
+          accessLost = true;
+          return;
+        }
         failed.push({ product, error: err.message || 'Download failed' });
       }
       done++;
@@ -115,6 +129,7 @@ export async function downloadProductsZip(products, { format = 'contain', zipNam
 
   await Promise.all(Array.from({ length: Math.min(CONCURRENCY, products.length) }, worker));
   if (signal?.aborted) throw new DOMException('Download cancelled', 'AbortError');
+  if (accessLost) throw new AccessRequiredError();
 
   if (failed.length) {
     notes['failed-downloads.txt'] = failed

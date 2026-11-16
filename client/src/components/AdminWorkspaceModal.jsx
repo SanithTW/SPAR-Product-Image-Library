@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { getProducts, uploadProduct, updateProduct, deleteProduct, checkHealth, getImageUrl } from '../services/api';
+import AccessCodesPanel from './AccessCodesPanel';
 
 export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }) {
   const { isAuthenticated, login, logout } = useAuth();
 
   // Login form state
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
@@ -214,7 +215,7 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="admin"
+                autoComplete="username"
                 required
               />
             </div>
@@ -224,7 +225,7 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="admin123"
+                autoComplete="current-password"
                 required
               />
             </div>
@@ -233,9 +234,6 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
             </button>
           </form>
 
-          <p style={{ marginTop: '16px', marginBottom: 0, fontSize: '12px', color: 'var(--muted)' }}>
-            Default credentials: <strong>admin</strong> / <strong>admin123</strong>
-          </p>
         </div>
       ) : (
         /* Admin Dashboard Workspace */
@@ -358,6 +356,8 @@ export default function AdminWorkspaceModal({ isOpen, onClose, onProductChange }
               </div>
             </form>
           </div>
+
+          <AccessCodesPanel />
 
           {/* Manage Products Table */}
           <div className="manage-head">

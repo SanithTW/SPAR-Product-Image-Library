@@ -1094,3 +1094,95 @@ footer {
 @media (max-width: 640px) {
   .toolbar { flex-wrap: wrap; }
 }
+
+/* ---------- Temporary access codes ---------- */
+.access-modal { z-index: 60; }
+
+.access-code-input {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 18px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.access-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--green);
+  border: 1px solid var(--green);
+  border-radius: 99px;
+  padding: 6px 6px 6px 12px;
+}
+
+.access-status button {
+  border: 0;
+  border-radius: 99px;
+  background: var(--line);
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.field select {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--ink);
+  outline: none;
+}
+
+.access-form {
+  display: grid;
+  grid-template-columns: 1fr 160px auto;
+  align-items: end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.access-form .field { margin: 0; }
+.access-form .login-submit { width: auto; margin: 0; padding: 13px 18px; }
+
+.access-created {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 16px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--green);
+  border-radius: 14px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.access-created code {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: .12em;
+  color: var(--green);
+}
+
+.access-table { margin-top: 16px; }
+.access-table .table-row { grid-template-columns: 110px 1fr 170px 56px 150px; }
+.access-table .table-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.access-code-cell { font-family: ui-monospace, Consolas, monospace; letter-spacing: .06em; }
+.access-expired { opacity: .55; }
+.access-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+@media (max-width: 720px) {
+  .access-form { grid-template-columns: 1fr; }
+  .access-form .login-submit { width: 100%; }
+}

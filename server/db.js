@@ -95,6 +95,19 @@ async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_products_name ON products(product_name);
     `);
 
+    // Temporary access codes: let non-admin users download images until the code expires.
+    await db.execute(`
+      CREATE TABLE IF NOT EXISTS access_codes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        code TEXT NOT NULL UNIQUE,
+        label TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        use_count INTEGER NOT NULL DEFAULT 0,
+        last_used_at TEXT
+      );
+    `);
+
     console.log(`[DB] Database initialized successfully (Connected to: ${isTurso ? 'Turso Cloud (' + rawUrl + ')' : 'Local SQLite'})`);
   } catch (error) {
     console.error('[DB] Failed to initialize database tables:', error);

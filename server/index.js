@@ -7,6 +7,7 @@ const { db, initDatabase } = require('./db');
 const { createAdmin } = require('./createAdmin');
 const authRoutes = require('./routes/auth');
 const productRoutes = require('./routes/products');
+const accessCodeRoutes = require('./routes/accessCodes');
 const { uploadDir, isCloudinaryConfigured } = require('./services/storage');
 
 const app = express();
@@ -89,6 +90,7 @@ apiRouter.get('/health', async (req, res) => {
 // Mount routes on apiRouter
 apiRouter.use('/auth', authRoutes);
 apiRouter.use('/products', productRoutes);
+apiRouter.use('/access-codes', accessCodeRoutes);
 
 // Mount router on both '/api' and '/' (for flexible hosting on Vercel and local dev)
 app.use('/api', apiRouter);

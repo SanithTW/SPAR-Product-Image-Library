@@ -4,7 +4,7 @@ const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { db } = require('../db');
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, downloadAuth } = require('../middleware/auth');
 const { upload, saveImage, deleteImage, uploadDir } = require('../services/storage');
 
 let sharp;
@@ -195,7 +195,7 @@ router.get('/:id/image', async (req, res) => {
  *  - size: 1080 (default) | number | 'original'
  *  - fit: 'cover' (center square crop, default) | 'contain' (fit with white background padding)
  */
-router.get('/:id/download', async (req, res) => {
+router.get('/:id/download', downloadAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const result = await db.execute({

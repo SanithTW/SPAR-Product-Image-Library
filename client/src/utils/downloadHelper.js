@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { getDownloadUrl, getImageUrl } from '../services/api';
+import { getDownloadUrl, getImageUrl, authHeaders } from '../services/api';
 
 /**
  * Triggers a client-side file download for a blob or data URL
@@ -119,6 +119,7 @@ export async function downloadProductImage(product, options = {}) {
     const downloadUrl = getDownloadUrl(product.id, { size, fit });
     const response = await axios.get(downloadUrl, {
       responseType: 'blob',
+      headers: authHeaders(),
     });
 
     const blob = new Blob([response.data], {
@@ -128,13 +129,18 @@ export async function downloadProductImage(product, options = {}) {
     triggerDownload(blobUrl, filename);
     return true;
   } catch (error) {
+    // No access (no code, or it expired/was deleted): let the caller ask for a code instead of working around it.
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const accessError = new Error('An access code is required to download images.');
+      accessError.accessRequired = true;
+      throw accessError;
+    }
     console.warn('[Download] Direct server route encountered an issue, trying client canvas fallback:', error);
     try {
       await cropAndDownloadViaCanvas(product, size, fit, filename);
       return true;
     } catch (canvasErr) {
-      console.error('[Download] Canvas cropper fallback also failed, falling back to direct window open:', canvasErr);
-      window.open(getDownloadUrl(product.id, { size, fit }), '_blank');
+      console.error('[Download] Canvas cropper fallback also failed:', canvasErr);
       return false;
     }
   }

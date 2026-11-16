@@ -4,9 +4,49 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
 });
 
+const GUEST_ACCESS_KEY = 'spar_download_access';
+
+/** Temporary download access from an access code: { token, label, expiresAt } or null if missing/expired. */
+export function getGuestAccess() {
+  try {
+    const access = JSON.parse(localStorage.getItem(GUEST_ACCESS_KEY) || 'null');
+    if (access?.token && new Date(access.expiresAt).getTime() > Date.now()) return access;
+  } catch {
+    // Unreadable storage counts as no access.
+  }
+  return null;
+}
+
+export function saveGuestAccess(access) {
+  try {
+    localStorage.setItem(GUEST_ACCESS_KEY, JSON.stringify(access));
+  } catch {
+    // Storage blocked: access lasts only for this page view.
+  }
+}
+
+export function clearGuestAccess() {
+  try {
+    localStorage.removeItem(GUEST_ACCESS_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
+
+/** Admin token if signed in, otherwise a valid access-code token, otherwise null. */
+export function getAuthToken() {
+  return localStorage.getItem('spar_admin_token') || getGuestAccess()?.token || null;
+}
+
+/** Headers for plain fetch() calls to protected endpoints such as downloads. */
+export function authHeaders() {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 // Interceptor to attach JWT token to all requests if available
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('spar_admin_token');
+  const token = getAuthToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -14,6 +54,26 @@ api.interceptors.request.use((config) => {
 }, (error) => {
   return Promise.reject(error);
 });
+
+export const redeemAccessCode = async (code) => {
+  const response = await api.post('/auth/access-code', { code });
+  return response.data;
+};
+
+export const listAccessCodes = async () => {
+  const response = await api.get('/access-codes');
+  return response.data.codes || [];
+};
+
+export const createAccessCode = async (label, hours) => {
+  const response = await api.post('/access-codes', { label, hours });
+  return response.data.accessCode;
+};
+
+export const deleteAccessCode = async (id) => {
+  const response = await api.delete(`/access-codes/${id}`);
+  return response.data;
+};
 
 export const getProducts = async (q = '') => {
   const params = q ? { q } : {};
