@@ -65,8 +65,9 @@ export const listAccessCodes = async () => {
   return response.data.codes || [];
 };
 
-export const createAccessCode = async (label, hours) => {
-  const response = await api.post('/access-codes', { label, hours });
+/** expiry: { hours } | { expiresAt } | { permanent: true } */
+export const createAccessCode = async (label, expiry) => {
+  const response = await api.post('/access-codes', { label, ...expiry });
   return response.data.accessCode;
 };
 

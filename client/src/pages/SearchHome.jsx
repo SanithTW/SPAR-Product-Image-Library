@@ -115,7 +115,7 @@ export default function SearchHome({ refreshTrigger }) {
           <div className="toolbar-actions">
             {!isAuthenticated && guestAccess && (
               <span className="access-status" title={`Access code for ${guestAccess.label}`}>
-                🔓 Downloads unlocked until {accessUntil}
+                🔓 {guestAccess.permanent ? 'Downloads unlocked' : `Downloads unlocked until ${accessUntil}`}
                 <button type="button" onClick={endGuestAccess}>End</button>
               </span>
             )}

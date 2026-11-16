@@ -1146,13 +1146,17 @@ footer {
 
 .access-form {
   display: grid;
-  grid-template-columns: 1fr 160px auto;
+  grid-template-columns: minmax(0, 1fr) 220px auto;
   align-items: end;
   gap: 12px;
   margin-top: 8px;
 }
 
-.access-form .field { margin: 0; }
+.access-form.with-custom { grid-template-columns: minmax(0, 1fr) 220px 250px auto; }
+.access-form .field { margin: 0; min-width: 0; }
+.access-form .field input,
+.access-form .field select { width: 100%; min-width: 0; box-sizing: border-box; }
+.field input[type="datetime-local"] { color-scheme: light dark; }
 .access-form .login-submit { width: auto; margin: 0; padding: 13px 18px; }
 
 .access-created {
@@ -1183,6 +1187,7 @@ footer {
 .access-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
 
 @media (max-width: 720px) {
-  .access-form { grid-template-columns: 1fr; }
+  .access-form,
+  .access-form.with-custom { grid-template-columns: 1fr; }
   .access-form .login-submit { width: 100%; }
 }

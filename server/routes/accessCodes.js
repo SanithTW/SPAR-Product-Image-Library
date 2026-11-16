@@ -7,7 +7,11 @@ const router = express.Router();
 
 // No 0/O or 1/I/L, so codes can be read out over the phone without mistakes.
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const MAX_DAYS = 90;
+const MAX_YEARS = 10;
+
+// "No expiry" codes are stored with this date (the column is NOT NULL); they work until deleted.
+const NEVER = '9999-12-31T23:59:59.000Z';
+const isPermanent = (expiresAt) => expiresAt === NEVER;
 
 function generateCode() {
   let raw = '';
@@ -33,17 +37,39 @@ router.get('/', authMiddleware, async (req, res, next) => {
   }
 });
 
-// POST /api/access-codes  (admin) - body: { label, hours }
+/**
+ * Work out the expiry from the request body. One of:
+ *   { hours }          - valid for this many hours from now
+ *   { expiresAt }      - valid until this date/time (ISO string)
+ *   { permanent: true } - never expires; works until the code is deleted
+ * Returns { expiresAt } or { error }.
+ */
+function resolveExpiry(body) {
+  if (body.permanent === true) return { expiresAt: NEVER };
+
+  const maxMs = Date.now() + MAX_YEARS * 365 * 24 * 3600 * 1000;
+  let ms;
+  if (body.expiresAt !== undefined) {
+    ms = new Date(body.expiresAt).getTime();
+    if (!Number.isFinite(ms)) return { error: 'Choose a valid expiry date and time.' };
+  } else {
+    const hours = Number(body.hours);
+    if (!Number.isFinite(hours) || hours <= 0) return { error: 'Choose how long the code is valid for.' };
+    ms = Date.now() + hours * 3600 * 1000;
+  }
+  if (ms <= Date.now() + 60 * 1000) return { error: 'The expiry time must be in the future.' };
+  if (ms > maxMs) return { error: `For more than ${MAX_YEARS} years, choose "No expiry" instead.` };
+  return { expiresAt: new Date(ms).toISOString() };
+}
+
+// POST /api/access-codes  (admin) - body: { label } plus { hours } | { expiresAt } | { permanent: true }
 router.post('/', authMiddleware, async (req, res, next) => {
   try {
     const label = String(req.body.label || '').trim().slice(0, 80);
-    const hours = Number(req.body.hours);
     if (!label) return res.status(400).json({ error: 'Enter who the code is for.' });
-    if (!Number.isFinite(hours) || hours <= 0 || hours > MAX_DAYS * 24) {
-      return res.status(400).json({ error: `Duration must be between 1 hour and ${MAX_DAYS} days.` });
-    }
 
-    const expiresAt = new Date(Date.now() + hours * 3600 * 1000).toISOString();
+    const { expiresAt, error } = resolveExpiry(req.body);
+    if (error) return res.status(400).json({ error });
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateCode();
       try {
@@ -75,3 +101,4 @@ router.delete('/:id', authMiddleware, async (req, res, next) => {
 
 module.exports = router;
 module.exports.normaliseCode = normaliseCode;
+module.exports.isPermanent = isPermanent;
