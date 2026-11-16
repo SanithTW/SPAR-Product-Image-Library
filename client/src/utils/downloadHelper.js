@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { getDownloadUrl, getImageUrl, authHeaders, getGuestAccess } from '../services/api';
-import sparLogo from '../assets/spar-logo.png';
+import sparLogo from '../assets/spar-watermark.png';
 
 /**
  * Triggers a client-side file download for a blob or data URL
@@ -30,16 +30,17 @@ function loadImage(src) {
   });
 }
 
-/** SPAR logo in the bottom-right corner; same size, margin and opacity as the server watermark. */
+/**
+ * SPAR watermark centred over the image, fitting inside 60% of it — same as the server watermark.
+ * The PNG is already semi-transparent, so it is drawn as-is.
+ */
 function drawWatermark(ctx, logo, dim) {
   if (!logo) return;
-  const margin = Math.round(dim * 0.03);
-  const w = Math.min(Math.max(90, Math.round(dim * 0.18)), dim - 2 * margin);
-  const h = Math.round((logo.naturalHeight / logo.naturalWidth) * w);
-  ctx.save();
-  ctx.globalAlpha = 0.85;
-  ctx.drawImage(logo, dim - w - margin, dim - h - margin, w, h);
-  ctx.restore();
+  const box = dim * 0.6;
+  const scale = Math.min(box / logo.naturalWidth, box / logo.naturalHeight);
+  const w = Math.round(logo.naturalWidth * scale);
+  const h = Math.round(logo.naturalHeight * scale);
+  ctx.drawImage(logo, Math.round((dim - w) / 2), Math.round((dim - h) / 2), w, h);
 }
 
 /**
