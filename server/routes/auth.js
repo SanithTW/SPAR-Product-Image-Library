@@ -3,8 +3,41 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { db } = require('../db');
 const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
+const { normaliseCode } = require('./accessCodes');
 
 const router = express.Router();
+
+// POST /api/auth/access-code - exchange a temporary access code for a download-only token
+router.post('/access-code', async (req, res) => {
+  try {
+    const code = normaliseCode(req.body.code);
+    const invalid = () => res.status(401).json({ error: 'That access code is not valid or has expired.' });
+    if (!code) return invalid();
+
+    const result = await db.execute({
+      sql: 'SELECT id, label, expires_at FROM access_codes WHERE code = ? LIMIT 1',
+      args: [code],
+    });
+    const row = result.rows[0];
+    if (!row) return invalid();
+
+    const secondsLeft = Math.floor((new Date(row.expires_at).getTime() - Date.now()) / 1000);
+    if (secondsLeft <= 0) return invalid();
+
+    await db.execute({
+      sql: 'UPDATE access_codes SET use_count = use_count + 1, last_used_at = ? WHERE id = ?',
+      args: [new Date().toISOString(), row.id],
+    });
+
+    const token = jwt.sign({ role: 'guest', codeId: row.id, label: row.label }, JWT_SECRET, {
+      expiresIn: secondsLeft,
+    });
+    return res.json({ token, label: row.label, expiresAt: row.expires_at });
+  } catch (err) {
+    console.error('[Auth] Access code error:', err);
+    return res.status(500).json({ error: 'Internal server error checking access code.' });
+  }
+});
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
