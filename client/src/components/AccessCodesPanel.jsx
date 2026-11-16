@@ -2,25 +2,40 @@ import React, { useEffect, useState } from 'react';
 import { listAccessCodes, createAccessCode, deleteAccessCode } from '../services/api';
 
 const DURATIONS = [
-  { hours: 1, label: '1 hour' },
-  { hours: 8, label: '8 hours' },
-  { hours: 24, label: '1 day' },
-  { hours: 72, label: '3 days' },
-  { hours: 168, label: '7 days' },
-  { hours: 720, label: '30 days' },
+  { value: '1', label: '1 hour' },
+  { value: '8', label: '8 hours' },
+  { value: '24', label: '1 day' },
+  { value: '72', label: '3 days' },
+  { value: '168', label: '7 days' },
+  { value: '720', label: '30 days' },
+  { value: 'custom', label: 'Custom date & time…' },
+  { value: 'never', label: 'No expiry (full access)' },
 ];
+
+// Must match NEVER in server/routes/accessCodes.js.
+const NEVER = '9999-12-31T23:59:59.000Z';
+const isPermanent = (iso) => iso === NEVER;
 
 const formatDate = (iso) =>
   new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 
+const formatExpiry = (iso) => (isPermanent(iso) ? 'Never' : formatDate(iso));
+
 const isExpired = (row) => new Date(row.expires_at).getTime() <= Date.now();
+
+/** Value for a datetime-local input, in the admin's own time zone. */
+function toLocalInput(date) {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
 
 /** Admin panel: create temporary access codes that let other people download images. */
 export default function AccessCodesPanel() {
   const [codes, setCodes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [label, setLabel] = useState('');
-  const [hours, setHours] = useState(24);
+  const [duration, setDuration] = useState('24');
+  const [customUntil, setCustomUntil] = useState(() => toLocalInput(new Date(Date.now() + 24 * 3600 * 1000)));
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
@@ -43,10 +58,29 @@ export default function AccessCodesPanel() {
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!label.trim()) return;
+
+    let expiry;
+    if (duration === 'never') {
+      expiry = { permanent: true };
+    } else if (duration === 'custom') {
+      const until = new Date(customUntil);
+      if (!customUntil || Number.isNaN(until.getTime())) {
+        setError('Choose the date and time the code should stop working.');
+        return;
+      }
+      if (until.getTime() <= Date.now()) {
+        setError('The expiry time must be in the future.');
+        return;
+      }
+      expiry = { expiresAt: until.toISOString() };
+    } else {
+      expiry = { hours: Number(duration) };
+    }
+
     try {
       setCreating(true);
       setError('');
-      const code = await createAccessCode(label.trim(), hours);
+      const code = await createAccessCode(label.trim(), expiry);
       setCreated(code);
       setLabel('');
       await load();
@@ -58,7 +92,8 @@ export default function AccessCodesPanel() {
   };
 
   const handleCopy = async (row) => {
-    const text = `SPAR Product Image Library access code: ${row.code}\nValid until ${formatDate(row.expires_at)}.\nOpen the library, press Download, and enter this code.`;
+    const validity = isPermanent(row.expires_at) ? 'No expiry.' : `Valid until ${formatDate(row.expires_at)}.`;
+    const text = `SPAR Product Image Library access code: ${row.code}\n${validity}\nOpen the library, press Download, and enter this code.`;
     try {
       await navigator.clipboard.writeText(text);
       setCopiedId(row.id);
@@ -86,7 +121,7 @@ export default function AccessCodesPanel() {
         <p>Give someone temporary access to download images. Anyone can still search and view without a code.</p>
       </div>
 
-      <form onSubmit={handleCreate} className="access-form">
+      <form onSubmit={handleCreate} className={`access-form ${duration === 'custom' ? 'with-custom' : ''}`}>
         <div className="field">
           <label htmlFor="accessLabel">Who is it for?</label>
           <input
@@ -99,12 +134,24 @@ export default function AccessCodesPanel() {
         </div>
         <div className="field">
           <label htmlFor="accessHours">Valid for</label>
-          <select id="accessHours" value={hours} onChange={(e) => setHours(Number(e.target.value))}>
+          <select id="accessHours" value={duration} onChange={(e) => setDuration(e.target.value)}>
             {DURATIONS.map((d) => (
-              <option key={d.hours} value={d.hours}>{d.label}</option>
+              <option key={d.value} value={d.value}>{d.label}</option>
             ))}
           </select>
         </div>
+        {duration === 'custom' && (
+          <div className="field">
+            <label htmlFor="accessUntil">Valid until</label>
+            <input
+              id="accessUntil"
+              type="datetime-local"
+              value={customUntil}
+              min={toLocalInput(new Date())}
+              onChange={(e) => setCustomUntil(e.target.value)}
+            />
+          </div>
+        )}
         <button type="submit" className="login-submit" disabled={creating || !label.trim()}>
           {creating ? 'Creating…' : 'Create access code'}
         </button>
@@ -116,7 +163,7 @@ export default function AccessCodesPanel() {
         <div className="access-created">
           <span>New code for <strong>{created.label}</strong></span>
           <code>{created.code}</code>
-          <span>Valid until {formatDate(created.expires_at)}</span>
+          <span>{isPermanent(created.expires_at) ? 'No expiry – works until you delete it' : `Valid until ${formatDate(created.expires_at)}`}</span>
           <button type="button" className="table-btn" onClick={() => handleCopy(created)}>
             {copiedId === created.id ? 'Copied ✓' : 'Copy message'}
           </button>
@@ -142,7 +189,7 @@ export default function AccessCodesPanel() {
               <div key={row.id} className={`table-row ${expired ? 'access-expired' : ''}`}>
                 <strong className="access-code-cell">{row.code}</strong>
                 <span title={row.label}>{row.label}</span>
-                <span>{expired ? 'Expired' : formatDate(row.expires_at)}</span>
+                <span>{expired ? 'Expired' : formatExpiry(row.expires_at)}</span>
                 <span>{row.use_count}×</span>
                 <span>
                   {!expired && (

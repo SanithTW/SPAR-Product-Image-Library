@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
 
   const redeemCode = async (code) => {
     const data = await redeemAccessCode(code);
-    const access = { token: data.token, label: data.label, expiresAt: data.expiresAt };
+    const access = { token: data.token, label: data.label, expiresAt: data.expiresAt, permanent: Boolean(data.permanent) };
     saveGuestAccess(access);
     setGuestAccess(access);
     return access;
@@ -108,7 +108,9 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (!guestAccess) return undefined;
     const ms = new Date(guestAccess.expiresAt).getTime() - Date.now();
-    const timer = setTimeout(endGuestAccess, Math.max(0, Math.min(ms, 2 ** 31 - 1)));
+    // Browsers can't time out further than ~24.8 days ahead; longer codes are checked again on the next visit.
+    if (ms > 2 ** 31 - 1) return undefined;
+    const timer = setTimeout(endGuestAccess, Math.max(0, ms));
     return () => clearTimeout(timer);
   }, [guestAccess, endGuestAccess]);
 

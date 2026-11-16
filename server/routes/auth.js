@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { db } = require('../db');
 const { authMiddleware, JWT_SECRET } = require('../middleware/auth');
-const { normaliseCode } = require('./accessCodes');
+const { normaliseCode, isPermanent } = require('./accessCodes');
 
 const router = express.Router();
 
@@ -29,10 +29,15 @@ router.post('/access-code', async (req, res) => {
       args: [new Date().toISOString(), row.id],
     });
 
-    const token = jwt.sign({ role: 'guest', codeId: row.id, label: row.label }, JWT_SECRET, {
-      expiresIn: secondsLeft,
-    });
-    return res.json({ token, label: row.label, expiresAt: row.expires_at });
+    // A "no expiry" code gets a token with no expiry; it still stops working once the code is deleted,
+    // because every download re-checks the code in the database.
+    const permanent = isPermanent(row.expires_at);
+    const token = jwt.sign(
+      { role: 'guest', codeId: row.id, label: row.label },
+      JWT_SECRET,
+      permanent ? {} : { expiresIn: secondsLeft }
+    );
+    return res.json({ token, label: row.label, expiresAt: row.expires_at, permanent });
   } catch (err) {
     console.error('[Auth] Access code error:', err);
     return res.status(500).json({ error: 'Internal server error checking access code.' });
