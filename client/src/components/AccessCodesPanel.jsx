@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { listAccessCodes, createAccessCode, deleteAccessCode } from '../services/api';
+import { listAccessCodes, createAccessCode, deleteAccessCode, setAccessCodeWatermark } from '../services/api';
 
 const DURATIONS = [
   { value: '1', label: '1 hour' },
@@ -23,6 +23,8 @@ const formatExpiry = (iso) => (isPermanent(iso) ? 'Never' : formatDate(iso));
 
 const isExpired = (row) => new Date(row.expires_at).getTime() <= Date.now();
 
+const hasWatermark = (row) => Number(row.watermark ?? 1) !== 0;
+
 /** Value for a datetime-local input, in the admin's own time zone. */
 function toLocalInput(date) {
   const pad = (n) => String(n).padStart(2, '0');
@@ -36,7 +38,9 @@ export default function AccessCodesPanel() {
   const [label, setLabel] = useState('');
   const [duration, setDuration] = useState('24');
   const [customUntil, setCustomUntil] = useState(() => toLocalInput(new Date(Date.now() + 24 * 3600 * 1000)));
+  const [watermark, setWatermark] = useState(true);
   const [creating, setCreating] = useState(false);
+  const [togglingId, setTogglingId] = useState(null);
   const [error, setError] = useState('');
   const [created, setCreated] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -80,9 +84,10 @@ export default function AccessCodesPanel() {
     try {
       setCreating(true);
       setError('');
-      const code = await createAccessCode(label.trim(), expiry);
+      const code = await createAccessCode(label.trim(), expiry, watermark);
       setCreated(code);
       setLabel('');
+      setWatermark(true); // back to the safe default for the next code
       await load();
     } catch (err) {
       setError(err.response?.data?.error || 'Could not create the access code.');
@@ -100,6 +105,20 @@ export default function AccessCodesPanel() {
       setTimeout(() => setCopiedId(null), 2000);
     } catch {
       window.prompt('Copy this access code:', row.code);
+    }
+  };
+
+  const handleToggleWatermark = async (row) => {
+    try {
+      setTogglingId(row.id);
+      setError('');
+      const updated = await setAccessCodeWatermark(row.id, !hasWatermark(row));
+      setCodes((list) => list.map((c) => (c.id === updated.id ? updated : c)));
+      if (created?.id === updated.id) setCreated(updated);
+    } catch {
+      setError('Could not change the watermark setting.');
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -155,6 +174,11 @@ export default function AccessCodesPanel() {
         <button type="submit" className="login-submit" disabled={creating || !label.trim()}>
           {creating ? 'Creating…' : 'Create access code'}
         </button>
+        <label className="access-check">
+          <input type="checkbox" checked={watermark} onChange={(e) => setWatermark(e.target.checked)} />
+          Add SPAR logo watermark to this person's downloads
+          <span>(you can change this later)</span>
+        </label>
       </form>
 
       {error && <div className="bulk-note bulk-note-error">{error}</div>}
@@ -164,6 +188,7 @@ export default function AccessCodesPanel() {
           <span>New code for <strong>{created.label}</strong></span>
           <code>{created.code}</code>
           <span>{isPermanent(created.expires_at) ? 'No expiry – works until you delete it' : `Valid until ${formatDate(created.expires_at)}`}</span>
+          <span>· {hasWatermark(created) ? 'With watermark' : 'No watermark'}</span>
           <button type="button" className="table-btn" onClick={() => handleCopy(created)}>
             {copiedId === created.id ? 'Copied ✓' : 'Copy message'}
           </button>
@@ -175,6 +200,7 @@ export default function AccessCodesPanel() {
           <span>Code</span>
           <span>For</span>
           <span>Expires</span>
+          <span>Watermark</span>
           <span>Used</span>
           <span>Actions</span>
         </div>
@@ -190,6 +216,21 @@ export default function AccessCodesPanel() {
                 <strong className="access-code-cell">{row.code}</strong>
                 <span title={row.label}>{row.label}</span>
                 <span>{expired ? 'Expired' : formatExpiry(row.expires_at)}</span>
+                <span>
+                  <button
+                    type="button"
+                    className={`wm-toggle ${hasWatermark(row) ? 'on' : ''}`}
+                    role="switch"
+                    aria-checked={hasWatermark(row)}
+                    aria-label={`Watermark for ${row.label}`}
+                    title={hasWatermark(row) ? 'Downloads have the SPAR logo. Click to turn off.' : 'Downloads have no logo. Click to turn on.'}
+                    disabled={togglingId === row.id || expired}
+                    onClick={() => handleToggleWatermark(row)}
+                  >
+                    <i />
+                    {hasWatermark(row) ? 'On' : 'Off'}
+                  </button>
+                </span>
                 <span>{row.use_count}×</span>
                 <span>
                   {!expired && (

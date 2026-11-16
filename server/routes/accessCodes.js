@@ -29,7 +29,7 @@ function normaliseCode(input) {
 router.get('/', authMiddleware, async (req, res, next) => {
   try {
     const result = await db.execute(
-      'SELECT id, code, label, expires_at, created_at, use_count, last_used_at FROM access_codes ORDER BY id DESC'
+      'SELECT id, code, label, expires_at, created_at, use_count, last_used_at, watermark FROM access_codes ORDER BY id DESC'
     );
     res.json({ codes: result.rows });
   } catch (err) {
@@ -70,13 +70,14 @@ router.post('/', authMiddleware, async (req, res, next) => {
 
     const { expiresAt, error } = resolveExpiry(req.body);
     if (error) return res.status(400).json({ error });
+    const watermark = req.body.watermark === false ? 0 : 1; // watermark unless the admin turned it off
     for (let attempt = 0; attempt < 5; attempt++) {
       const code = generateCode();
       try {
         const result = await db.execute({
-          sql: `INSERT INTO access_codes (code, label, expires_at) VALUES (?, ?, ?)
-                RETURNING id, code, label, expires_at, created_at, use_count, last_used_at`,
-          args: [code, label, expiresAt],
+          sql: `INSERT INTO access_codes (code, label, expires_at, watermark) VALUES (?, ?, ?, ?)
+                RETURNING id, code, label, expires_at, created_at, use_count, last_used_at, watermark`,
+          args: [code, label, expiresAt, watermark],
         });
         return res.status(201).json({ accessCode: result.rows[0] });
       } catch (err) {
@@ -84,6 +85,24 @@ router.post('/', authMiddleware, async (req, res, next) => {
       }
     }
     res.status(500).json({ error: 'Could not generate a unique code. Please try again.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /api/access-codes/:id  (admin) - body: { watermark: boolean }. Applies from the holder's next download.
+router.patch('/:id', authMiddleware, async (req, res, next) => {
+  try {
+    if (typeof req.body.watermark !== 'boolean') {
+      return res.status(400).json({ error: 'Send watermark as true or false.' });
+    }
+    const result = await db.execute({
+      sql: `UPDATE access_codes SET watermark = ? WHERE id = ?
+            RETURNING id, code, label, expires_at, created_at, use_count, last_used_at, watermark`,
+      args: [req.body.watermark ? 1 : 0, req.params.id],
+    });
+    if (!result.rows.length) return res.status(404).json({ error: 'Access code not found.' });
+    res.json({ accessCode: result.rows[0] });
   } catch (err) {
     next(err);
   }

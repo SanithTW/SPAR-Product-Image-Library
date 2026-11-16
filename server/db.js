@@ -108,6 +108,13 @@ async function initDatabase() {
       );
     `);
 
+    // Per-code choice: add the SPAR watermark to this code holder's downloads (1) or not (0).
+    try {
+      await db.execute('ALTER TABLE access_codes ADD COLUMN watermark INTEGER NOT NULL DEFAULT 1');
+    } catch (e) {
+      // Column already exists, safe to ignore
+    }
+
     console.log(`[DB] Database initialized successfully (Connected to: ${isTurso ? 'Turso Cloud (' + rawUrl + ')' : 'Local SQLite'})`);
   } catch (error) {
     console.error('[DB] Failed to initialize database tables:', error);
